@@ -8,6 +8,7 @@
 Risky tool calls are classified instantly, judged by a board of different models, and can be vetoed before they run.</b></p>
 
 <p align="center">
+  <img alt="CI" src="https://img.shields.io/github/actions/workflow/status/meshoklv/opencode-steroids/ci.yml?style=flat-square&label=CI">
   <img alt="license" src="https://img.shields.io/github/license/meshoklv/opencode-steroids?style=flat-square">
   <img alt="platform" src="https://img.shields.io/badge/platform-linux-informational?style=flat-square">
   <img alt="language" src="https://img.shields.io/badge/TypeScript-no%20build%20step-3178c6?style=flat-square">
