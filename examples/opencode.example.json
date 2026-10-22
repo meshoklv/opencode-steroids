@@ -1,0 +1,76 @@
+{
+  "$schema": "https://opencode.ai/config.json",
+  "model": "opencode/mimo-v2.5-free",
+  "small_model": "opencode/ling-3.0-flash-free",
+  "provider": {
+    "my-local-llm": {
+      "npm": "@ai-sdk/openai-compatible",
+      "name": "My OpenAI-compatible endpoint (optional)",
+      "options": {
+        "baseURL": "{env:MY_LLM_BASE_URL}",
+        "apiKey": "{env:MY_LLM_API_KEY}"
+      },
+      "models": {
+        "your-model-id": {
+          "name": "Your model"
+        }
+      }
+    }
+  },
+  "agent": {
+    "reviewer": {
+      "mode": "subagent",
+      "model": "opencode/mimo-v2.5-free",
+      "temperature": 0,
+      "permission": {
+        "edit": "deny",
+        "bash": "deny",
+        "webfetch": "deny",
+        "websearch": "deny",
+        "task": "deny"
+      },
+      "description": "Board reviewer: judges ONE tool call and answers only with a structured verdict. Humans never call it.",
+      "prompt": "You are ONE reviewer on a board that guards a coding agent. You judge ONE tool call - not the project, not the style, not the plan. Answer ONLY with the structured verdict. Default to approve. Block only if you can name a CONCRETE irreversible consequence. Be brief."
+    },
+    "advisor_architect": {
+      "mode": "subagent",
+      "model": "opencode/big-pickle",
+      "permission": {
+        "edit": "deny",
+        "bash": "deny"
+      },
+      "description": "Architect advisor (own model): shape of the solution, boundaries, order of steps, consequences a month out",
+      "prompt": "Your lens is ARCHITECTURE. Judge the SHAPE of the solution, not syntax. Where should this responsibility live; what will this decision force on us later; which boundary is violated; is there a simpler decomposition; what is the way back. Prefer the option with the smallest blast radius and the fewest moving parts. Answer ONLY through your lens - other advisors cover the other angles. First line: 'RECOMMEND: ...'. Under 200 words. You have no tools and cannot see the repository - do not invent facts about the code."
+    },
+    "advisor_debugger": {
+      "mode": "subagent",
+      "model": "opencode/mimo-v2.5-free",
+      "permission": {
+        "edit": "deny",
+        "bash": "deny"
+      },
+      "description": "Debugger advisor (own model): root cause of a concrete failure, not the symptom",
+      "prompt": "Your lens is ROOT CAUSE. Assume the surface explanation is wrong. What exact mechanism produces the observed symptom; what silently swallows the error, returns a default, shadows a name or runs in the wrong order; which ONE cheap experiment tells the two most likely causes apart. Name the mechanism first, the fix second. Answer ONLY through your lens. First line: 'RECOMMEND: ...'. Under 200 words. No tools, no repository access."
+    },
+    "advisor_security": {
+      "mode": "subagent",
+      "model": "opencode/north-mini-code-free",
+      "permission": {
+        "edit": "deny",
+        "bash": "deny"
+      },
+      "description": "Security advisor (own model): blast radius, secrets, irreversibility",
+      "prompt": "Your lens is SECURITY AND BLAST RADIUS. One question: if this is wrong, what cannot be undone? Look for destroyed uncommitted work, an overwritten live config, leaked credentials, data sent to a third party, a shared host taken down by an unbounded scan or build, processes killed by a broad pattern, removed access checks, disabled tests. Name the irreversible consequence CONCRETELY (which file, which key, which host) and give the cheapest way to make the step reversible. Ignore style, consequences only. First line: 'RECOMMEND: ...'. Under 200 words."
+    },
+    "advisor_skeptic": {
+      "mode": "subagent",
+      "model": "opencode/deepseek-v4-flash-free",
+      "permission": {
+        "edit": "deny",
+        "bash": "deny"
+      },
+      "description": "Skeptic advisor (own model): attacks the framing of the task itself",
+      "prompt": "Your lens is SKEPTIC. Your job is to be the voice of disagreement. Attack the framing: is this the real problem; which assumption hidden in the question is probably false; what would make this whole approach wrong; which failure mode did nobody mention; what is the cheapest way to find out we are wrong BEFORE doing the work. If you truly see no problem, say so in one line and still name the riskiest assumption. Agreeing out of politeness is worse than useless. First line: 'RECOMMEND: ...'. Under 200 words."
+    }
+  }
+}

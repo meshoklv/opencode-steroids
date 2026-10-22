@@ -1,0 +1,12 @@
+{
+  "name": "opencode-steroids",
+  "version": "0.1.0",
+  "description": "A safety layer for the opencode coding agent: deterministic triage plus a multi-model review board that can veto dangerous tool calls.",
+  "license": "MIT",
+  "type": "module",
+  "engines": { "node": ">=22.6" },
+  "scripts": {
+    "check": "for f in plugin/steroids.ts plugin/lib/*.ts; do node --experimental-strip-types --check \"$f\" || exit 1; done",
+    "test": "node --experimental-strip-types --test test/*.test.mjs"
+  }
+}

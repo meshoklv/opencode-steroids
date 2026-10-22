@@ -1,0 +1,932 @@
+{
+  "//": "opencode-steroids default configuration. Copy to ~/.config/opencode/steroids.json and delete everything you do not want to change: EVERY key is optional and this file is deep-merged over the built-in defaults (objects merge key-by-key, ARRAYS REPLACE the default array wholesale, keys starting with // are ignored). Precedence: built-in defaults < this file < environment variables (OCREV_*) < kill-files listed in paths.killFiles (touch one and everything turns off instantly, no restart). KNOBS: enabled = master switch. mode: off (all hooks return instantly, zero tokens) | observe (classify + log + advise, NEVER blocks and NEVER delays a tool call, never calls a model) | enforce (default; deterministic host rules veto for free, riskier calls are reviewed by the board and can be vetoed) | paranoid (enforce plus a third reviewer on the review tier and a fast-gate look at calls rated safe). escalate = let the slow ~52s escalation model into blocking paths. sanitize = apply triage.bash.sanitizeRewrites instead of only judging. chains = ordered model fallback per role (gate/deep/tiebreak/panelA/panelB/panelC/main), free first and paid opencode-go last; NEVER put a *-free id under opencode-go, it returns 401. weights = blocking power per model, 0 means advisory-only and can never veto. quarantined = never called unless explicitly probed. contextWindow / expectedLatencyMs = measured facts used for routing. tiers.safe|review|danger = per-risk policy: review = call a model at all, blocking = veto inside tool.execute.before, async = advise afterwards instead, failClosed = block when no reviewer answers, blockThreshold = weighted dissent required, canBlock = hard off-switch for veto power. quorum = verdict normalisation, the anti-false-positive downgrade ladder. triage = the free synchronous regex-only governor deciding safe vs review vs danger, including bash.hardDeny (deterministic veto for the written host rules: recursive search over huge trees, npm install, tsc / next build, broad pkill, parallel Chromium) which needs no model and is never demoted. redaction = what must never leave this machine (canonical block; cfg.redact, cfg.extraSecrets and the flat triage mirrors are DERIVED from it, do not edit those). budget = rate, spend, depth and latency caps. breaker = per-model circuit breaker. paid = when the opencode-go subscription may be spent (never for the fast gate). caller = low-level model-call knobs; the duplicated ones mirror quarantined / reviewer.disabledTools / paid.* / breaker.* and are re-derived on load. reviewer = reviewer-session hygiene; a prompt with neither a lean agent nor an explicit system inherits the default 'lead' agent and burns ~31k input tokens. board = the model review board itself, keyed by LENS (IRREVERSIBLE/INTENT/HOST/SECRETS/SCOPE) rather than by role: chains = which models sit on each lens, paidTail = the opencode-go tail added only on the danger tier, escalationChain = the tie-breaker, reviewerAgent = leave \"\" unless an agent with that exact name really exists in opencode.json (a wrong name makes EVERY reviewer call fail); the other board keys are re-derived from weights/quorum/tiers/budget/redaction/paid on every load, so edit those. advisors = the multi-model advisor panel exposed to the agent as the tools advisor / advisor_panel / advisor_debate: panel and debatePanel hold PERSONA names (architect, debugger, security, skeptic, simplifier, perf), personas merges key-by-key over the built-ins and a new key adds a new advisor, and every persona's first free model should be different from every other persona's — one model per advisor is the entire point. logging + paths = where logs and state live. NOTHING is ever written under ~/.config/opencode/.",
+  "version": 1,
+  "enabled": true,
+  "mode": "enforce",
+  "escalate": false,
+  "sanitize": false,
+  "paidFallback": true,
+  "chains": {
+    "gate": [
+      "opencode/ling-3.0-flash-free",
+      "opencode/mimo-v2.5-free",
+      "opencode/big-pickle",
+      "opencode/nemotron-3-ultra-free",
+      "opencode/deepseek-v4-flash-free"
+    ],
+    "deep": [
+      "opencode/nemotron-3-ultra-free",
+      "opencode/mimo-v2.5-free",
+      "opencode/north-mini-code-free",
+      "opencode/big-pickle",
+      "opencode/ling-3.0-flash-free",
+      "opencode-go/mimo-v2.5-pro"
+    ],
+    "tiebreak": [
+      "opencode/nemotron-3-ultra-free",
+      "opencode/north-mini-code-free",
+      "opencode/big-pickle"
+    ],
+    "panelA": [
+      "opencode/nemotron-3-ultra-free",
+      "opencode/north-mini-code-free",
+      "opencode/big-pickle",
+      "opencode-go/deepseek-v4-pro"
+    ],
+    "panelB": [
+      "opencode/mimo-v2.5-free",
+      "opencode/north-mini-code-free",
+      "opencode/big-pickle",
+      "opencode-go/mimo-v2.5"
+    ],
+    "panelC": [
+      "opencode/ling-3.0-flash-free",
+      "opencode/deepseek-v4-flash-free",
+      "opencode/big-pickle",
+      "opencode-go/hy3"
+    ],
+    "main": [
+      "opencode/mimo-v2.5-free",
+      "opencode/north-mini-code-free",
+      "opencode/ling-3.0-flash-free",
+      "opencode-go/mimo-v2.5",
+      "opencode-go/mimo-v2.5-pro"
+    ]
+  },
+  "weights": {
+    "opencode/mimo-v2.5-free": 1,
+    "opencode/nemotron-3-ultra-free": 1,
+    "opencode/north-mini-code-free": 1,
+    "opencode/big-pickle": 0.5,
+    "opencode/ling-3.0-flash-free": 0,
+    "opencode/deepseek-v4-flash-free": 0,
+    "opencode-go/mimo-v2.5": 1,
+    "opencode-go/mimo-v2.5-pro": 1,
+    "opencode-go/deepseek-v4-pro": 1,
+    "opencode-go/deepseek-v4-flash": 0.5,
+    "opencode-go/hy3": 0.5
+  },
+  "quarantined": [
+    "opencode/laguna-s-2.1-free"
+  ],
+  "contextWindow": {
+    "opencode/nemotron-3-ultra-free": 1000000,
+    "opencode/ling-3.0-flash-free": 262100,
+    "opencode/north-mini-code-free": 256000,
+    "opencode/mimo-v2.5-free": 200000,
+    "opencode/big-pickle": 200000,
+    "opencode/deepseek-v4-flash-free": 200000,
+    "opencode-go/mimo-v2.5": 1000000,
+    "opencode-go/mimo-v2.5-pro": 1000000
+  },
+  "expectedLatencyMs": {
+    "opencode/ling-3.0-flash-free": 4200,
+    "opencode/deepseek-v4-flash-free": 14200,
+    "opencode/mimo-v2.5-free": 16300,
+    "opencode/big-pickle": 16900,
+    "opencode/nemotron-3-ultra-free": 19000,
+    "opencode/north-mini-code-free": 52300
+  },
+  "tiers": {
+    "safe": {
+      "review": false,
+      "blocking": false,
+      "async": false,
+      "reviewers": [],
+      "blockThreshold": 2,
+      "canBlock": false,
+      "earlyVeto": false,
+      "timeoutMs": 0,
+      "failClosed": false,
+      "escalateModels": [],
+      "maxEscalations": 0,
+      "maxAdvisories": 0,
+      "advisoryMaxChars": 0
+    },
+    "review": {
+      "review": true,
+      "blocking": true,
+      "async": false,
+      "reviewers": [
+        "opencode/ling-3.0-flash-free",
+        "opencode/mimo-v2.5-free",
+        "opencode/nemotron-3-ultra-free"
+      ],
+      "blockThreshold": 2,
+      "canBlock": true,
+      "earlyVeto": true,
+      "timeoutMs": 30000,
+      "failClosed": false,
+      "escalateModels": [
+        "opencode/north-mini-code-free"
+      ],
+      "maxEscalations": 1,
+      "maxAdvisories": 2,
+      "advisoryMaxChars": 500
+    },
+    "danger": {
+      "review": true,
+      "blocking": true,
+      "async": false,
+      "reviewers": [
+        "opencode/mimo-v2.5-free",
+        "opencode/nemotron-3-ultra-free",
+        "opencode/north-mini-code-free"
+      ],
+      "blockThreshold": 2,
+      "canBlock": true,
+      "earlyVeto": true,
+      "timeoutMs": 75000,
+      "failClosed": true,
+      "escalateModels": [],
+      "maxEscalations": 1,
+      "maxAdvisories": 2,
+      "advisoryMaxChars": 500
+    }
+  },
+  "quorum": {
+    "blockThreshold": 2,
+    "severityFloor": [
+      "high",
+      "critical"
+    ],
+    "confidenceFloor": [
+      "medium",
+      "high"
+    ],
+    "minConsequenceChars": 25,
+    "minProblemChars": 10,
+    "requireConsequence": true,
+    "invalidConsequencePattern": "^\\s*(none|n/?a|nothing|unknown|unclear|possibl|may |might |could |potential|maybe|not sure)",
+    "vetoDemoteAfter": 4,
+    "cacheTtlMs": 900000,
+    "structuredRetryCount": 3,
+    "unknownVerdictIsError": true
+  },
+  "blastRadius": {
+    "enabled": true,
+    "freeRows": 1,
+    "maxRows": 10,
+    "maxValuedRows": 3,
+    "maxRowsPerWindow": 25,
+    "windowMs": 3600000,
+    "probeTimeoutMs": 6000,
+    "failClosedWhenUnderivable": true,
+    "modelExplains": false,
+    "allowModelDowngrade": false,
+    "neverDowngradeAboveRows": 5
+  },
+  "triage": {
+    "ignoreTools": [
+      "read",
+      "glob",
+      "grep",
+      "list",
+      "todowrite",
+      "todoread",
+      "webfetch",
+      "websearch",
+      "question",
+      "invalid",
+      "lsp_diagnostics",
+      "lsp_hover",
+      "list_mcp_resources",
+      "list_mcp_resource_templates",
+      "read_mcp_resource"
+    ],
+    "mutatingTools": [
+      "bash",
+      "write",
+      "edit",
+      "apply_patch",
+      "patch",
+      "multiedit",
+      "task",
+      "skill"
+    ],
+    "fileTools": [
+      "write",
+      "edit",
+      "apply_patch",
+      "patch",
+      "multiedit"
+    ],
+    "reviewTools": [
+      "task",
+      "skill"
+    ],
+    "bash": {
+      "safeAllow": [
+        "^\\s*(?:git\\s+(?:status|diff|log|show|branch|remote\\s+-v|rev-parse|stash\\s+list)|ls|ll|cat|head|tail|wc|jq|echo|printf|pwd|which|whoami|hostname|date|uptime|df|free|uname|du\\s+-s|stat|file|node\\s+-v|python3?\\s+-V|opencode\\s+models|rtk\\s+gain)\\b"
+      ],
+      "review": [
+        "\\bgit\\s+(?:push|commit|checkout|reset|revert|rebase|merge|stash|tag|cherry-pick)\\b",
+        "\\bdocker\\b",
+        "\\bsystemctl\\b",
+        "\\bpm2\\b",
+        "\\bservice\\s+\\S+\\s+(?:start|stop|restart|reload)\\b",
+        "\\bchmod\\b",
+        "\\bchown\\b",
+        "\\bmv\\b",
+        "\\bcp\\s+-\\S*f",
+        "\\bsed\\s+-i\\b",
+        "\\btee\\b",
+        "\\bscp\\b",
+        "\\brsync\\b",
+        "\\bssh\\b",
+        "\\bcurl\\s+(?:-\\S+\\s+)*-X\\s*(?:POST|PUT|DELETE|PATCH)\\b",
+        "\\bnpm\\s+run\\b",
+        "\\bapt(?:-get)?\\s+(?:install|remove|purge|upgrade)\\b",
+        "\\bpip3?\\s+install\\b",
+        "\\bpsql\\b",
+        "\\bmysql\\b",
+        "\\bmigrat(?:e|ion)\\b",
+        "\\bALTER\\s+TABLE\\b",
+        "\\bUPDATE\\s+\\w+\\s+SET\\b",
+        ">>?\\s*\\S"
+      ],
+      "danger": [
+        "\\brm\\s+(?:-\\S+\\s+)*[^-]",
+        "\\bmv\\s+\\S+\\s+/dev/null\\b",
+        "\\bgit\\s+reset\\s+--hard\\b",
+        "\\bgit\\s+checkout\\s+--\\s",
+        "\\bgit\\s+push\\b",
+        "\\bkill\\b",
+        "\\bpkill\\b",
+        "\\bkillall\\b",
+        "\\bDELETE\\s+FROM\\b",
+        "\\bDROP\\s+(?:TABLE|DATABASE|SCHEMA)\\b",
+        "\\bTRUNCATE\\s+TABLE\\b",
+        "\\bchmod\\s+(?:-\\S+\\s+)*777\\b",
+        "\\bchown\\s+-R\\b",
+        "\\bcrontab\\b",
+        "\\bufw\\b",
+        "\\biptables\\b",
+        "\\bnpm\\s+publish\\b",
+        "\\bdocker\\s+(?:rm|rmi|system\\s+prune|volume\\s+rm)\\b",
+        "\\bhelm\\s+(?:delete|uninstall)\\b",
+        "\\bkubectl\\s+delete\\b",
+        "\\bterraform\\s+(?:destroy|apply)\\b"
+      ],
+      "hardDeny": [
+        "\\brm\\s+(?:-\\S+\\s+)*-\\S*[rR]",
+        "\\bdd\\s+[^|;]*\\bof=",
+        "\\bmkfs(?:\\.|\\s)",
+        "\\bshred\\b",
+        "\\btruncate\\s+-s\\s*0\\b",
+        ">\\s*/dev/(?:sd|nvme|vd|hd)",
+        "\\bgit\\s+push\\b[^|;]*--force(?!-with-lease)",
+        "\\bgit\\s+clean\\s+-\\S*[fd]",
+        "\\bnpm\\s+(?:i|install|ci)\\b",
+        "\\byarn\\s+(?:install|add)\\b",
+        "\\bpnpm\\s+(?:i|install|add)\\b",
+        "\\bbun\\s+(?:i|install|add)\\b",
+        "\\b(?:npx\\s+)?tsc\\b",
+        "\\bnext\\s+(?:build|dev|start)\\b",
+        "\\b(?:webpack|turbo\\s+build|vite\\s+build|rollup)\\b",
+        "\\b(?:jest|vitest|playwright|eslint)\\b",
+        ":\\(\\)\\s*\\{",
+        "\\b(?:curl|wget)\\b[^|;]*\\|\\s*(?:sudo\\s+)?(?:ba|z|d)?sh\\b",
+        "\\bp?kill\\s+(?:-\\S+\\s+)*-f\\s+(?![\"']?\\S*\\[)",
+        "\\bpkill\\s+(?:-\\S+\\s+)*(?:node|python3?|claude|opencode|tmux|screen|ttyd)\\b",
+        "\\btmux\\s+kill-(?:server|session)\\b",
+        "\\bdocker\\s+(?:kill|stop|rm)\\s+(?:-\\S+\\s+)*(?:prod|live|vpn|db|postgres)\\S*",
+        "\\bchromium\\b[^|;]*--headless",
+        "\\bpuppeteer\\b"
+      ],
+      "recursiveSearchCmd": [
+        "(?:^|[;&|]\\s*|\\s)(?:find|grep|egrep|fgrep|rg|ugrep|ag|ack)\\s"
+      ],
+      "recursiveFlags": [
+        "(?:^|\\s)-[a-zA-Z]*[rR][a-zA-Z]*(?:\\s|$)",
+        "--recursive\\b",
+        "(?:^|[;&|]\\s*|\\s)find\\s"
+      ],
+      "depthLimited": [
+        "-maxdepth\\s+[0-2]\\b",
+        "--max-depth[= ]\\s*[0-2]\\b",
+        "-depth\\s+[0-2]\\b"
+      ],
+      "bigTreeRoots": [
+        "/",
+        "/root",
+        "/home",
+        "~/.claude",
+        "~/.claude/projects",
+        "/root/.claude",
+        "/root/.claude/projects",
+        "/opt",
+        "/var",
+        "~",
+        "$HOME"
+      ],
+      "scratchPaths": [
+        "^/tmp/",
+        "^/var/tmp/",
+        "/scratchpad/",
+        "^/dev/null$",
+        "/node_modules/",
+        "/\\.cache/"
+      ],
+      "sanitizeRewrites": [
+        {
+          "match": "(?:^|(?<=[;&|]\\s))find\\s+((?:/home|/root|/opt|~|\\$HOME)\\S*)\\s+(?!-maxdepth)",
+          "flags": "g",
+          "replace": "find $1 -maxdepth 2 ",
+          "why": "unbounded find over a huge tree once consumed 3.5 GB of RAM in 4 minutes on a shared host"
+        },
+        {
+          "match": "\\b(grep|egrep|fgrep)\\s+(-[a-zA-Z]*[rR][a-zA-Z]*)(?!\\S)",
+          "flags": "g",
+          "replace": "$1 $2 --exclude-dir=node_modules --exclude-dir=.git --exclude-dir=.next",
+          "why": "recursive grep must at least skip the biggest generated trees"
+        }
+      ]
+    },
+    "paths": {
+      "fatal": [
+        "/\\.config/opencode/",
+        "/\\.local/share/opencode/auth\\.json$",
+        "/\\.ssh/",
+        "(?:^|/)\\.env$",
+        "(?:^|/)\\.env\\.",
+        "(?:^|/)[^/]*\\.env$",
+        "(?:^|/)id_(?:rsa|ed25519|ecdsa|dsa)(?:\\.pub)?$",
+        "\\.(?:pem|key|pfx|p12|jks|kdbx)$",
+        "/\\.aws/",
+        "/\\.kube/config$",
+        "/\\.docker/config\\.json$",
+        "(?:^|/)\\.npmrc$",
+        "(?:^|/)\\.netrc$",
+        "(?:^|/)\\.pgpass$",
+        "(?:^|/)\\.git-credentials$",
+        "(?:^|/)wg\\d*\\.conf$",
+        "\\.ovpn$",
+        "/plugin/lib/triage\\.ts$",
+        "/plugin/lib/config\\.ts$",
+        "(?:^|/)steroids\\.json$",
+        "(?:^|/)review-board\\.json$",
+        "^/etc/",
+        "^/boot/",
+        "^/dev/",
+        "^/proc/",
+        "^/sys/",
+        "^/usr/",
+        "^/bin/",
+        "^/sbin/"
+      ],
+      "high": [
+        "(?:^|/)package-lock\\.json$",
+        "(?:^|/)bun\\.lockb?$",
+        "(?:^|/)yarn\\.lock$",
+        "(?:^|/)pnpm-lock\\.yaml$",
+        "(?:^|/)\\.github/workflows/",
+        "(?:^|/)Dockerfile",
+        "(?:^|/)docker-compose",
+        "(?:^|/)Makefile$",
+        "(?:^|/)\\.gitignore$",
+        "(?:^|/)\\.git/",
+        "(?:^|/)tsconfig(?:\\..*)?\\.json$",
+        "(?:^|/)next\\.config\\.",
+        "(?:^|/)prisma/schema\\.prisma$",
+        "(?:^|/)migrations?/",
+        "(?:^|/)ecosystem\\.config\\.",
+        "(?:^|/)nginx\\.conf$",
+        "(?:^|/)Caddyfile$"
+      ],
+      "medium": [
+        "(?:^|/)package\\.json$",
+        "(?:^|/)AGENTS\\.md$",
+        "(?:^|/)CLAUDE\\.md$",
+        "(?:^|/)opencode\\.jsonc?$",
+        "(?:^|/)\\.opencode/",
+        "(?:^|/)\\.eslintrc",
+        "(?:^|/)\\.prettierrc",
+        "(?:^|/)vitest\\.config\\.",
+        "(?:^|/)jest\\.config\\.",
+        "(?:^|/)vite\\.config\\.",
+        "(?:^|/)babel\\.config\\.",
+        "(?:^|/)\\.editorconfig$"
+      ],
+      "test": "(?:^|/)(?:__tests__|tests?|spec)/|\\.(?:test|spec)\\.[cm]?[jt]sx?$",
+      "protectedWrite": [
+        "~/.config/opencode",
+        "~/.local/share/opencode",
+        "~/.ssh",
+        "/etc"
+      ],
+      "outsideWorktreeRisk": "danger"
+    },
+    "content": {
+      "secret": "(?:-----BEGIN\\s+(?:[A-Z ]+\\s+)?PRIVATE KEY-----|\\bsk-[A-Za-z0-9_-]{16,}|\\b\\d{8,10}:AA[A-Za-z0-9_-]{30,}\\b|\\bgh[pousr]_[A-Za-z0-9]{20,}\\b|\\bAKIA[0-9A-Z]{16}\\b|\\bAIza[0-9A-Za-z_-]{35}\\b|\\bxox[abposr]-[A-Za-z0-9-]{10,}\\b|\\bglpat-[A-Za-z0-9_-]{20,}\\b|\\bnpm_[A-Za-z0-9]{36}\\b|\\beyJ[A-Za-z0-9_-]{10,}\\.[A-Za-z0-9_-]{10,}\\.[A-Za-z0-9_-]{10,}\\b)",
+      "testWeakened": "\\b(?:it|test|describe)\\.(?:skip|only)\\b|\\bxit\\s*\\(|\\bxdescribe\\s*\\(|@ts-nocheck|@ts-ignore|eslint-disable(?!-next-line)|\\.skip\\s*\\(\\s*['\"]",
+      "guardRemoved": "\\b(?:assert|invariant|validate|authorize|authenticate|checkPermission|requireAuth|verifySignature|csrf|sanitize|escapeHtml|rateLimit)\\b"
+    },
+    "diff": {
+      "reviewChangedLines": 150,
+      "dangerChangedLines": 300,
+      "reviewFiles": 5,
+      "dangerFiles": 12,
+      "deleteFileOpsDanger": 3,
+      "netDeletionHigh": 80,
+      "removedHigh": 200,
+      "removedMedium": 40,
+      "addedMedium": 200,
+      "truncateRewriteMinOld": 120,
+      "truncateRewriteRatio": 0.5,
+      "newFileMediumLines": 400,
+      "wholesaleDeleteLines": 10,
+      "testShrinkNetLines": 10
+    },
+    "allowGlobs": [],
+    "summaryMaxChars": 2000,
+    "diffPreviewLines": 200,
+    "redact": "standard",
+    "redactMaxHits": 8,
+    "extraSecrets": [],
+    "entropyThreshold": 3.5,
+    "maxSummaryChars": 2000,
+    "maxCommandChars": 2000,
+    "maxPatchExcerpt": 6000,
+    "allowBigTreeSearch": false
+  },
+  "redact": "standard",
+  "extraSecrets": [],
+  "caller": {
+    "timeoutMs": 25000,
+    "chainBudgetMs": 30000,
+    "maxAttempts": 8,
+    "breakerFails": 3,
+    "benchLadderMs": [
+      300000,
+      900000,
+      3600000
+    ],
+    "soBenchMs": 1800000,
+    "rateLimitBenchMs": 60000,
+    "probeCooldownMs": 300000,
+    "edgeBanCooldownMs": 60000,
+    "authDeadCooldownMs": 600000,
+    "slowSkipFactor": 1.5,
+    "retryDelayServerMs": 750,
+    "retryDelaySchemaMs": 250,
+    "maxPromptChars": 12000,
+    "retryCount": 3,
+    "agent": "",
+    "sessionTitlePrefix": "«ocrev»",
+    "defaultProvider": "opencode",
+    "quarantined": [
+      "opencode/laguna-s-2.1-free"
+    ],
+    "disabledTools": [
+      "bash",
+      "edit",
+      "write",
+      "apply_patch",
+      "patch",
+      "multiedit",
+      "read",
+      "list",
+      "glob",
+      "grep",
+      "task",
+      "webfetch",
+      "websearch",
+      "todowrite",
+      "todoread",
+      "skill",
+      "question",
+      "invalid",
+      "execute",
+      "lsp_diagnostics",
+      "lsp_hover",
+      "list_mcp_resources",
+      "list_mcp_resource_templates",
+      "read_mcp_resource"
+    ],
+    "persist": true,
+    "paidEnabled": true,
+    "maxPaidCalls": 12
+  },
+  "redaction": {
+    "level": "standard",
+    "maxHits": 8,
+    "maxPayloadBytes": 12000,
+    "headBytes": 8000,
+    "tailBytes": 4000,
+    "dropContextLinesWhenParanoid": true,
+    "extraSecrets": [],
+    "withheldOutputCommands": [
+      "^\\s*(?:env|printenv|set)\\s*$",
+      "\\bdocker\\s+inspect\\b",
+      "\\bsystemctl\\s+show\\b",
+      "\\bcat\\b[^|;]*auth\\.json",
+      "\\bgh\\s+auth\\s+token\\b",
+      "\\bpass\\s+show\\b",
+      "\\bsecurity\\s+find-generic-password\\b"
+    ],
+    "pathBlocklist": [
+      "(?:^|/)\\.env$",
+      "(?:^|/)\\.env\\.",
+      "(?:^|/)[^/]*\\.env$",
+      "/\\.local/share/opencode/auth\\.json$",
+      "/\\.config/opencode/",
+      "/\\.ssh/",
+      "(?:^|/)id_[^/]*$",
+      "\\.(?:pem|key|pfx|p12|jks|kdbx)$",
+      "/\\.aws/",
+      "/\\.kube/config$",
+      "/\\.docker/config\\.json$",
+      "(?:^|/)\\.npmrc$",
+      "(?:^|/)\\.netrc$",
+      "(?:^|/)\\.pgpass$",
+      "(?:^|/)\\.git-credentials$",
+      "(?:^|/)secrets?[^/]*$",
+      "(?:^|/)[^/]*secret[^/]*\\.(?:json|ya?ml|env)$",
+      "(?:^|/)wg\\d*\\.conf$",
+      "\\.ovpn$"
+    ],
+    "patterns": [
+      {
+        "label": "private-key",
+        "source": "-----BEGIN (?:[A-Z ]+ )?PRIVATE KEY-----[\\s\\S]*?-----END (?:[A-Z ]+ )?PRIVATE KEY-----",
+        "flags": "g"
+      },
+      {
+        "label": "anthropic-key",
+        "source": "\\bsk-ant-[A-Za-z0-9_-]{20,}",
+        "flags": "g"
+      },
+      {
+        "label": "sk-key",
+        "source": "\\bsk-(?:proj-|live-|test-)?[A-Za-z0-9_-]{16,}",
+        "flags": "g"
+      },
+      {
+        "label": "telegram-bot-token",
+        "source": "\\b\\d{8,10}:AA[A-Za-z0-9_-]{30,}\\b",
+        "flags": "g"
+      },
+      {
+        "label": "github-token",
+        "source": "\\bgh[pousr]_[A-Za-z0-9]{20,}\\b",
+        "flags": "g"
+      },
+      {
+        "label": "github-pat",
+        "source": "\\bgithub_pat_[A-Za-z0-9_]{20,}\\b",
+        "flags": "g"
+      },
+      {
+        "label": "aws-access-key-id",
+        "source": "\\b(?:AKIA|ASIA)[0-9A-Z]{16}\\b",
+        "flags": "g"
+      },
+      {
+        "label": "google-api-key",
+        "source": "\\bAIza[0-9A-Za-z_-]{35}\\b",
+        "flags": "g"
+      },
+      {
+        "label": "slack-token",
+        "source": "\\bxox[abposr]-[A-Za-z0-9-]{10,}\\b",
+        "flags": "g"
+      },
+      {
+        "label": "gitlab-token",
+        "source": "\\bglpat-[A-Za-z0-9_-]{20,}\\b",
+        "flags": "g"
+      },
+      {
+        "label": "npm-token",
+        "source": "\\bnpm_[A-Za-z0-9]{36}\\b",
+        "flags": "g"
+      },
+      {
+        "label": "jwt",
+        "source": "\\beyJ[A-Za-z0-9_-]{10,}\\.[A-Za-z0-9_-]{10,}\\.[A-Za-z0-9_-]{10,}\\b",
+        "flags": "g"
+      },
+      {
+        "label": "wireguard-or-b64-key",
+        "source": "(?<![A-Za-z0-9+/=])[A-Za-z0-9+/]{43}=(?![A-Za-z0-9+/=])",
+        "flags": "g"
+      },
+      {
+        "label": "url-basic-auth",
+        "source": "(?<=://)([^/\\s:@]{1,64}):([^/\\s@]{1,128})@",
+        "flags": "g"
+      },
+      {
+        "label": "cli-secret-flag",
+        "source": "(?<![\\w-])--?(?:password|passwd|pass|token|api[-_]?key|secret|auth)[= ]\\s*(\"[^\"]*\"|'[^']*'|\\S+)",
+        "flags": "gi"
+      },
+      {
+        "label": "auth-header",
+        "source": "\\b(?:authorization|proxy-authorization)\\s*:\\s*(?:bearer|basic|token)\\s+\\S+",
+        "flags": "gi"
+      },
+      {
+        "label": "env-assignment",
+        "source": "\\b([A-Z][A-Z0-9_]*(?:TOKEN|SECRET|PASSWORD|PASSWD|APIKEY|API_KEY|PRIVATE_KEY|ACCESS_KEY|CREDENTIALS?|COOKIE)[A-Z0-9_]*)\\s*[:=]\\s*(\"[^\"]*\"|'[^']*'|[^\\s;&|]{4,})",
+        "flags": "g"
+      },
+      {
+        "label": "connection-string",
+        "source": "\\b(?:mongodb(?:\\+srv)?|postgres(?:ql)?|mysql|redis|amqp|clickhouse)://\\S+",
+        "flags": "gi"
+      },
+      {
+        "label": "stripe-key",
+        "source": "\\b(?:sk|rk)_live_[A-Za-z0-9]{16,}\\b",
+        "flags": "g"
+      }
+    ],
+    "entropy": {
+      "enabled": true,
+      "minLength": 32,
+      "minBitsPerChar": 3.5,
+      "charClass": "[A-Za-z0-9+/=_-]"
+    },
+    "replacement": "«REDACTED:$LABEL»"
+  },
+  "budget": {
+    "maxPerSession": 200,
+    "maxPerMin": 20,
+    "maxPerMinSession": 12,
+    "maxConcurrent": 2,
+    "queueWaitMs": 1500,
+    "maxSpendUsd": 0.5,
+    "maxSpendUsdTotal": 2,
+    "assumedCostUsd": 0.002,
+    "timeoutMs": 15000,
+    "timeoutMsEscalate": 25000,
+    "maxDepth": 3,
+    "maxPayloadBytes": 12000,
+    "maxPromptChars": 12000,
+    "dangerReserve": 20,
+    "maxBlockingPerSession": 40,
+    "maxCumulativeReviewMs": 360000,
+    "maxAsyncInFlight": 2,
+    "asyncQueueDepth": 4,
+    "cacheTtlMs": 900000,
+    "selfErrorsMax": 5,
+    "reviewerSessionGraceMs": 60000,
+    "seenTtlMs": 600000,
+    "seenMax": 2000,
+    "resolveCacheMax": 500,
+    "rootCacheMax": 200,
+    "bannerFullCount": 3,
+    "bannerEveryNth": 10
+  },
+  "breaker": {
+    "failuresToBench": 3,
+    "benchLadderMs": [
+      300000,
+      900000,
+      3600000
+    ],
+    "soFailuresToBench": 2,
+    "soBenchMs": 1800000,
+    "rateLimitBenchMs": 60000,
+    "promoteWindowMs": 600000,
+    "probationPerRoleMs": 300000,
+    "latencySkipFactor": 2.5,
+    "ewmaAlpha": 0.3,
+    "serverRetryDelayMs": 750,
+    "serverRetryJitterMs": 250,
+    "schemaRetryDelayMs": 250,
+    "emptyRetryDelayMs": 250,
+    "edgeBanUserAgent": "opencode-steroids/1.0",
+    "saveDebounceMs": 2000
+  },
+  "paid": {
+    "enabled": true,
+    "provider": "opencode-go",
+    "freeProvider": "opencode",
+    "maxPerSession": 5,
+    "maxPerHour": 12,
+    "reservedForMain": 2,
+    "maxInputChars": 20000,
+    "maxOutputTokens": 1500,
+    "retries": 0,
+    "allowTiers": {
+      "gate": [],
+      "deep": [
+        "danger"
+      ],
+      "tiebreak": [
+        "danger"
+      ],
+      "panelA": [
+        "danger"
+      ],
+      "panelB": [
+        "danger"
+      ],
+      "panelC": [
+        "danger"
+      ],
+      "main": [
+        "safe",
+        "review",
+        "danger"
+      ]
+    },
+    "fallbackMap": {
+      "opencode/mimo-v2.5-free": "opencode-go/mimo-v2.5",
+      "opencode/nemotron-3-ultra-free": "opencode-go/deepseek-v4-flash",
+      "opencode/north-mini-code-free": "opencode-go/mimo-v2.5",
+      "opencode/ling-3.0-flash-free": "opencode-go/hy3",
+      "opencode/big-pickle": "opencode-go/mimo-v2.5",
+      "opencode/deepseek-v4-flash-free": "opencode-go/deepseek-v4-flash"
+    },
+    "priceUsdPerMTok": {
+      "opencode-go/mimo-v2.5": {
+        "input": 0.14,
+        "output": 0.28
+      },
+      "opencode-go/mimo-v2.5-pro": {
+        "input": 0.435,
+        "output": 0.87
+      },
+      "opencode-go/hy3": {
+        "input": 0.14,
+        "output": 0.58
+      },
+      "opencode-go/deepseek-v4-flash": {
+        "input": 0.14,
+        "output": 0.28
+      },
+      "opencode-go/deepseek-v4-pro": {
+        "input": 0.435,
+        "output": 0.87
+      }
+    }
+  },
+  "roleBudgetMs": {
+    "gate": 25000,
+    "deep": 120000,
+    "tiebreak": 60000,
+    "panelA": 90000,
+    "panelB": 90000,
+    "panelC": 45000,
+    "main": 0
+  },
+  "chainBudgetMs": {
+    "gate": 30000,
+    "deep": 240000,
+    "tiebreak": 90000,
+    "panelA": 150000,
+    "panelB": 150000,
+    "panelC": 150000,
+    "main": 0
+  },
+  "board": {
+    "blockThreshold": 2,
+    "weights": {},
+    "chains": {
+      "IRREVERSIBLE": [
+        "opencode/mimo-v2.5-free",
+        "opencode/big-pickle",
+        "opencode/nemotron-3-ultra-free"
+      ],
+      "INTENT": [
+        "opencode/nemotron-3-ultra-free",
+        "opencode/mimo-v2.5-free",
+        "opencode/big-pickle"
+      ],
+      "HOST": [
+        "opencode/nemotron-3-ultra-free",
+        "opencode/big-pickle",
+        "opencode/mimo-v2.5-free"
+      ],
+      "SECRETS": [
+        "opencode/north-mini-code-free",
+        "opencode/mimo-v2.5-free",
+        "opencode/big-pickle"
+      ],
+      "SCOPE": [
+        "opencode/ling-3.0-flash-free",
+        "opencode/deepseek-v4-flash-free"
+      ]
+    },
+    "paidTail": {
+      "IRREVERSIBLE": [
+        "opencode-go/mimo-v2.5"
+      ],
+      "INTENT": [
+        "opencode-go/deepseek-v4-flash"
+      ],
+      "HOST": [
+        "opencode-go/mimo-v2.5"
+      ],
+      "SECRETS": [
+        "opencode-go/mimo-v2.5"
+      ],
+      "SCOPE": []
+    },
+    "escalationChain": [
+      "opencode/north-mini-code-free",
+      "opencode/nemotron-3-ultra-free"
+    ],
+    "timeoutMs": {
+      "advisory": 10000,
+      "review": 30000,
+      "danger": 75000,
+      "escalate": 75000
+    },
+    "reviewerAgent": "",
+    "maxPayloadChars": 12000,
+    "cacheTtlMs": 900000,
+    "maxVetoesPerSession": 4,
+    "maxReviewsPerSession": 200,
+    "maxCumulativeReviewMs": 360000,
+    "advisoryMaxItems": 2,
+    "advisoryMaxChars": 500,
+    "earlyVeto": true,
+    "escalateOnCriticalDissent": true,
+    "escalate": false,
+    "failClosedOnDanger": true,
+    "paidFallback": true,
+    "extraSecrets": []
+  },
+  "reviewer": {
+    "agent": "",
+    "sessionTitlePrefix": "«ocrev»",
+    "structuredRetryCount": 3,
+    "maxDepth": 8,
+    "disabledTools": [
+      "bash",
+      "edit",
+      "write",
+      "apply_patch",
+      "patch",
+      "multiedit",
+      "read",
+      "list",
+      "glob",
+      "grep",
+      "task",
+      "webfetch",
+      "websearch",
+      "todowrite",
+      "todoread",
+      "skill",
+      "question",
+      "invalid",
+      "execute",
+      "lsp_diagnostics",
+      "lsp_hover",
+      "list_mcp_resources",
+      "list_mcp_resource_templates",
+      "read_mcp_resource"
+    ],
+    "neverDisable": [
+      "StructuredOutput"
+    ],
+    "systemFallback": "You are one reviewer on a board guarding a coding agent. Answer ONLY through the structured verdict. Default to approve. Be terse."
+  },
+  "advisors": {
+    "enabled": true,
+    "panel": [
+      "architect",
+      "debugger",
+      "skeptic"
+    ],
+    "debatePanel": [
+      "architect",
+      "skeptic"
+    ],
+    "personas": {},
+    "maxCallsPerSession": 60,
+    "maxPanelsPerSession": 12,
+    "maxConcurrentToolCalls": 2,
+    "paidFallback": false,
+    "synthesize": true,
+    "synthesizerChain": [
+      "opencode/ling-3.0-flash-free",
+      "opencode/mimo-v2.5-free",
+      "opencode/big-pickle"
+    ],
+    "maxContextChars": 6000,
+    "maxAnswerChars": 1600,
+    "agent": "",
+    "debug": false
+  },
+  "logging": {
+    "level": "info",
+    "stderr": true,
+    "maxBytes": 5242880,
+    "jsonl": true,
+    "maxFieldChars": 2000
+  },
+  "paths": {
+    "killFiles": [
+      "/tmp/review-board.off",
+      "/tmp/rb.off"
+    ],
+    "sentinelTtlMs": 2000
+  }
+}

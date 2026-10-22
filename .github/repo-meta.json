@@ -1,0 +1,6 @@
+{
+  "name": "opencode-steroids",
+  "description": "Safety layer for the opencode coding agent: instant risk triage plus a multi-model review board that can veto dangerous tool calls.",
+  "homepage": "",
+  "topics": ["opencode", "ai-agents", "coding-agent", "llm-safety", "guardrails", "ai-safety", "plugin", "typescript", "code-review", "multi-model"]
+}
